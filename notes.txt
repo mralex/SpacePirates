@@ -1,0 +1,91 @@
+Mozilla Game_On
+
+* Player can design their own space ship
+	- Ship can be saved locally using localstorage
+	- Ship can be exported? JSON?
+		- Ships can be imported?
+		- Ships can be shared on the web, and maybe incorporated
+		  into the current game?
+
+Pirate factions?
+
+Pirate ships?
+
+Intergalactic space battles
+
+Obligatory Space Battles
+
+Fly around, find power ups and ship improvements
+	- Ship stats saved to localStorage
+	- Ship stats uploaded to remote server?
+
+
+Modifiable Components
+	- Velocity
+	- Rotational Speed
+	- Weapon types
+	- Weapon counts
+	- Shield Strength
+	- Shield Recharge
+	- Armor Strength
+
+	- Bots?
+		- Repair
+		- Defense
+		- Attack
+
+FTL style?
+Isaac style?
+Open scrolling map?
+
+ - Due to HTML5 performance concerns, FTL/Isaac style would be more performant.
+
+Sector hops
+
+
+End game???
+
+PVP???
+
+Ship computers... hackable with JS injections... Viruses...
+
+Enemies
+	- Asteroids
+	- Other player ships
+
+Solar System
+	- Dynamic, procedurally generated
+		- Predefined room types?
+
+Art
+	- Predrawn sprites?
+	- Composite images?
+		- Built using seperate sprites, cached off-screen with another canvas
+		  so only the rendered sprite is shown in-game.
+
+
+Character motivation????
+
+Goal???
+
+ - Richest pirate in the galaxy!
+ - Kill all the bounty hunters!
+ - Kill the police
+ - (Sorta ties into LD25 - "You're The Villain")
+
+
+
+
+-----
+
+Backend
+
+ - Django?
+ - Rails?
+ - Node.js?
+
+ Probably Node.js. Store ships in Mongo?
+
+ User storage?
+
+ 
