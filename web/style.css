@@ -1,0 +1,15 @@
+body {
+	font: 12px 'Helvetica Neue', helvetica, arial, sans-serif;
+	background: #000;
+	color: #fff;
+}
+
+#content {
+	width: 640px;
+	margin: 0 auto;
+}
+
+footer {
+	font-size: 10px;
+	color: #aaa;
+}

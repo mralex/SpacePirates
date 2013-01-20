@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+	<title>Space Pirates!!!</title>
+
+	<link rel="stylesheet" href="style.css">
+</head>
+<body>
+	<header>
+		<h1>Space Pirates!</h1>
+	</header>
+	<div id="content">
+		<canvas width="640" height="360" id="gameCanvas" background="#fff"></canvas>
+		<p id="msg"></p>
+	</div>
+	<footer>
+		Space Pirates! &copy; 2013, Alex Roberts
+	</footer>
+
+	<script type="text/javascript" src="lib/jquery-1.9.0.js"></script>
+	<script type="text/javascript" src="lib/underscore.js"></script>
+	<script type="text/javascript" src="lib/backbone.js"></script>
+	<script type="text/javascript" src="lib/math.js"></script>
+
+	<script src="src/base.js" type="text/javascript"></script>
+
+	<script type="text/javascript">
+		$(function() {
+			var game = new Engine({ el: '#gameCanvas' });
+			window.game = game;
+
+			for (var j = 0; j < 10; j++) {
+			for (var i  = 0; i < 20; i++) {
+				var entity = new Entity({
+					position: new Vector3(1, i * 20),
+					w: Math.random() * 150 + 50,
+					h: 10,
+					fillStyle: '#0f0',
+					parent: game.model,
+					speed: Math.random() * 175 + 25
+				});
+
+				game.gameObjects.add(entity);
+			}
+			}
+
+			game.render();
+		});
+	</script>
+
+</body>
+</html>
