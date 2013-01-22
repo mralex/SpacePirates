@@ -56,13 +56,34 @@
 				var entity = new GameObject({
 					position: new Vector2(this.width() / 2, this.height() / 2),
 					w: 20,
-					h: 20
+					h: 15
 				});
 				entity.components.add([
-					new MoveComponent(),
-					new RotationComponent()
+					new MoveComponent({ speed: 250 }),
+					new RotationComponent({ rotationSpeed: 200 })
 				]);
 				this.children.add(entity);
+
+				entity.children.add([
+					new GameObject({
+						position: new Vector2(-3, -15),
+						w: 5,
+						h: 25,
+						fillStyle: '#d00'
+					}),
+					new GameObject({
+						position: new Vector2(-3, 15),
+						w: 5,
+						h: 25,
+						fillStyle: '#d00'
+					}),
+					new GameObject({
+						position: new Vector2(0, 0),
+						w: 30,
+						h: 10,
+						fillStyle: '#f00'
+					})
+				]);
 			});
 
 			game.setActiveScene('test2');

@@ -218,14 +218,18 @@ var GameObject = Backbone.Model.extend({
             rotation: -1.570,
             w: 0,
             h: 0,
+            render: true,
             _parent: null
         };
     },
 
     initialize: function(options) {
+        this.set('type', this.type);
         this.components = new GameObjectCollection(null, { gameObject: this });
         this.children = new GameObjectCollection(null, { gameObject: this });
+
         this.on('change:_parent', this._parentChanged);
+        this.on('destroy', this._destroyChildren);
 
         this.postInitialize();
     },
@@ -259,6 +263,10 @@ var GameObject = Backbone.Model.extend({
         return new Vector2(Math.cos(rot), Math.sin(rot));
     },
 
+    destroy: function() {
+        this.set('_destroyed', true);
+    },
+
     step: function(dt) {
         this.components.invoke('step', dt);
 
@@ -270,22 +278,36 @@ var GameObject = Backbone.Model.extend({
     thisStep: function(dt) {},
 
     draw: function(ctx) {
+        var pos = this.position();
+
         ctx.save();
-        this.thisDraw(ctx);
-        ctx.restore();
+        ctx.translate(pos.x, pos.y);
+        ctx.rotate(this.rotation());
+
+        if (this.get('render')) {
+            this.thisDraw(ctx);
+        }
+
         this.children.invoke('draw', ctx);
+        ctx.restore();
     },
 
     thisDraw: function(ctx) {
         var pos = this.position();
         ctx.fillStyle = this.get('fillStyle') || '#fff';
-        ctx.translate(pos.x, pos.y);
-        ctx.rotate(this.rotation());
+
         ctx.fillRect(-(this.width() / 2), -(this.height() / 2), this.width(), this.height());
     },
 
     _parentChanged: function() {
         this.components.invoke('_parentChanged');
+    },
+
+    _destroyChildren: function() {
+        this.children.each(function(child) {
+            child.trigger('destroy');
+        });
+        this.children.remove(this.children.where({ _destroyed: true }));
     },
 
     postInitialize: function() {}
@@ -308,7 +330,16 @@ var GameObjectCollection = Backbone.Collection.extend({
 
     addedObject: function(gameObject) {
         gameObject.set('_parent', this.gameObject);
-    } 
+    },
+
+    ofType: function(type) {
+        var objects = this.where({type: type});
+
+        if (objects.length) {
+            return objects[0];
+        }
+        return null;
+    }
 });
 
 var Scene = GameObject.extend({
@@ -321,6 +352,11 @@ var Scene = GameObject.extend({
             };
 
         return _.extend(Scene.__super__.defaults(), defaults);
+    },
+    draw: function(ctx) {
+        this.children.invoke('draw', ctx);
+
+        this._destroyChildren();
     },
     thisDraw: function() {},
 
@@ -349,6 +385,8 @@ var InputManager = Backbone.Model.extend({
     initialize: function(options) {
         _.bindAll(this, 'keyDown', 'keyUp');
 
+        this.keysPressed = {};
+
         this.on('change:scene', this.sceneChanged);
     },
 
@@ -359,18 +397,27 @@ var InputManager = Backbone.Model.extend({
     },
 
     keyDown: function(e) {
-        if (this.currentKey() === e.char) {
+        if (this.isKeyDown(e.char)) {
             return;
         }
         this.set('key', e.char);
+        this.keysPressed[e.char] = true;
     },
 
     keyUp: function(e) {
         this.set('key', '');
+        this.keysPressed[e.char] = false;
     },
 
     currentKey: function() {
         return this.attributes.key;
+    },
+
+    isKeyDown: function(key) {
+        if ((key in this.keysPressed) && this.keysPressed[key]) {
+            return true;
+        }
+        return false;
     }
 
 });
@@ -460,11 +507,13 @@ var RotationComponent = BaseComponent.extend({
     type: 'RotationComponent',
 
     step: function(dt) {
-        if (this.scene.inputManager().currentKey() === 'D') {
-            this.gameObject.attributes.rotation += (100 * dt * Math.PI)/180;
+        var rotationSpeed = this.get('rotationSpeed');
+
+        if (this.scene.inputManager().isKeyDown('D')) {
+            this.gameObject.attributes.rotation += (rotationSpeed * dt * Math.PI)/180;
         }
-        if (this.scene.inputManager().currentKey() === 'A') {
-            this.gameObject.attributes.rotation -= (100 * dt * Math.PI)/180;
+        if (this.scene.inputManager().isKeyDown('A')) {
+            this.gameObject.attributes.rotation -= (rotationSpeed * dt * Math.PI)/180;
         }
     }
 });
@@ -473,12 +522,14 @@ var MoveComponent = BaseComponent.extend({
     type: 'MoveComponent',
 
     step: function(dt) {
-        var pos = this.gameObject.position();
-        if (this.scene.inputManager().currentKey() === 'W') {
-            this.gameObject.set('position', pos.add(this.gameObject.forward().multiply(100 * dt)));
+        var pos = this.gameObject.position(),
+            speed = this.get('speed');
+
+        if (this.scene.inputManager().isKeyDown('W')) {
+            this.gameObject.set('position', pos.add(this.gameObject.forward().multiply(speed * dt)));
         }
-        if (this.scene.inputManager().currentKey() === 'S') {
-            this.gameObject.set('position', pos.subtract(this.gameObject.forward().multiply(100 * dt)));
+        if (this.scene.inputManager().isKeyDown('S')) {
+            this.gameObject.set('position', pos.subtract(this.gameObject.forward().multiply(speed * dt)));
         }
     }
 });
