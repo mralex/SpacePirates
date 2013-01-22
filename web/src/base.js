@@ -21,7 +21,7 @@
   if (!window[requestAnimationFrame]) {
     window[requestAnimationFrame] = function (callback) {
       var
-          currentTime = +new Date,
+          currentTime = +new Date(),
           adjustedDelay = 16 - (currentTime - expectedTime),
           delay = adjustedDelay > 0 ? adjustedDelay : 0;
  
@@ -215,7 +215,7 @@ var GameObject = Backbone.Model.extend({
         return {
             id: Math.uuidFast(),
             position: Vector2.zero(),
-            rotation: -1.570,
+            rotation: 0.0,
             w: 0,
             h: 0,
             render: true,
@@ -224,6 +224,8 @@ var GameObject = Backbone.Model.extend({
     },
 
     initialize: function(options) {
+        _.bindAll(this, 'destroy');
+
         this.set('type', this.type);
         this.components = new GameObjectCollection(null, { gameObject: this });
         this.children = new GameObjectCollection(null, { gameObject: this });
@@ -258,6 +260,12 @@ var GameObject = Backbone.Model.extend({
     },
 
     forward: function() {
+        var rot = this.rotation() - 1.570;
+
+        return new Vector2(Math.cos(rot), Math.sin(rot));
+    },
+
+    right: function() {
         var rot = this.rotation();
 
         return new Vector2(Math.cos(rot), Math.sin(rot));
@@ -266,6 +274,8 @@ var GameObject = Backbone.Model.extend({
     destroy: function() {
         this.set('_destroyed', true);
     },
+
+    onStart: function() {},
 
     step: function(dt) {
         this.components.invoke('step', dt);
@@ -294,6 +304,11 @@ var GameObject = Backbone.Model.extend({
 
     thisDraw: function(ctx) {
         var pos = this.position();
+
+        // if (pos.x < 0 || pos.x > this.width() || pos.y < 0 || pos.y > this.height()) {
+        //     return;
+        // }
+
         ctx.fillStyle = this.get('fillStyle') || '#fff';
 
         ctx.fillRect(-(this.width() / 2), -(this.height() / 2), this.width(), this.height());
@@ -330,6 +345,7 @@ var GameObjectCollection = Backbone.Collection.extend({
 
     addedObject: function(gameObject) {
         gameObject.set('_parent', this.gameObject);
+        gameObject.onStart();
     },
 
     ofType: function(type) {
@@ -427,7 +443,7 @@ var ComponentCollection = GameObjectCollection.extend({
 
     addedObject: function(gameObject) {
         gameObject.set('_parent', this.gameObject);
-    } 
+    }
 });
 
 var BaseComponent = GameObject.extend({
