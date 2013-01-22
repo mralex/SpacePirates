@@ -86,9 +86,10 @@ var InputListener = Backbone.View.extend({
     },
 
     _keyType: function(e) {
+        var char = String.fromCharCode(e.keyCode);
         return {
             keyCode: e.keyCode,
-            char: String.fromCharCode(e.keyCode),
+            char: char,
             isShift: e.shiftKey,
             isAlt: e.altKey,
             isCtrl: e.ctrlKey,
@@ -119,7 +120,7 @@ var InputListener = Backbone.View.extend({
 
 var Engine = Backbone.View.extend({
     initialize: function(options) {
-        this.model = new Context();
+        this.model = new Context({ engine: this });
         this.model.on('context-error', this.contextError);
         this.model.on('context-success', this.contextSuccess);
 
@@ -133,7 +134,11 @@ var Engine = Backbone.View.extend({
     },
 
     setActiveScene: function(id) {
-        this.activeScene = this.scenes.at(id);
+        if (_.isNumber(id)) {
+            this.activeScene = this.scenes.at(id);
+        } else {
+            this.activeScene = this.scenes.where({name: id})[0];
+        }
     },
 
     render: function() {
@@ -209,7 +214,8 @@ var GameObject = Backbone.Model.extend({
     defaults: function() { 
         return {
             id: Math.uuidFast(),
-            position: Vector3.zero(),
+            position: Vector2.zero(),
+            rotation: -1.570,
             w: 0,
             h: 0,
             _parent: null
@@ -229,6 +235,10 @@ var GameObject = Backbone.Model.extend({
         return this.attributes.position;
     },
 
+    rotation: function() {
+        return this.attributes.rotation;
+    },
+
     width: function() {
         //return this.get('w');
         return this.attributes.w;
@@ -243,6 +253,12 @@ var GameObject = Backbone.Model.extend({
         return this.attributes._parent;
     },
 
+    forward: function() {
+        var rot = this.rotation();
+
+        return new Vector2(Math.cos(rot), Math.sin(rot));
+    },
+
     step: function(dt) {
         this.components.invoke('step', dt);
 
@@ -254,14 +270,18 @@ var GameObject = Backbone.Model.extend({
     thisStep: function(dt) {},
 
     draw: function(ctx) {
+        ctx.save();
         this.thisDraw(ctx);
+        ctx.restore();
         this.children.invoke('draw', ctx);
     },
 
     thisDraw: function(ctx) {
         var pos = this.position();
         ctx.fillStyle = this.get('fillStyle') || '#fff';
-        ctx.fillRect(pos.x, pos.y, this.width(), this.height());
+        ctx.translate(pos.x, pos.y);
+        ctx.rotate(this.rotation());
+        ctx.fillRect(-(this.width() / 2), -(this.height() / 2), this.width(), this.height());
     },
 
     _parentChanged: function() {
@@ -296,17 +316,23 @@ var Scene = GameObject.extend({
 
     defaults: function() {
         var defaults = {
-                inputManager: null
+                name: '',
+                inputManager: new InputManager()
             };
 
         return _.extend(Scene.__super__.defaults(), defaults);
     },
     thisDraw: function() {},
 
-    setup: function() {},
+    setup: function() {
+        this.inputManager().set('scene', this);
+        this.afterSetup();
+    },
+
+    afterSetup: function() {},
 
     load: function(callback) {
-        this.setup = callback;
+        this.afterSetup = callback;
     },
 
     inputManager: function() {
@@ -314,6 +340,40 @@ var Scene = GameObject.extend({
     }
 });
 //var Stage;
+
+var InputManager = Backbone.Model.extend({
+    defaults: {
+        key: ''
+    },
+
+    initialize: function(options) {
+        _.bindAll(this, 'keyDown', 'keyUp');
+
+        this.on('change:scene', this.sceneChanged);
+    },
+
+    sceneChanged: function() {
+        this.inputListener = this.get('scene').parent().get('engine').inputListener;
+        this.inputListener.on('keydown', this.keyDown);
+        this.inputListener.on('keyup', this.keyUp);
+    },
+
+    keyDown: function(e) {
+        if (this.currentKey() === e.char) {
+            return;
+        }
+        this.set('key', e.char);
+    },
+
+    keyUp: function(e) {
+        this.set('key', '');
+    },
+
+    currentKey: function() {
+        return this.attributes.key;
+    }
+
+});
 
 var ComponentCollection = GameObjectCollection.extend({
     model: BaseComponent,
@@ -342,6 +402,7 @@ var BaseComponent = GameObject.extend({
 
         this.gameObject = this.attributes._parent;
         this.position = this.gameObject.position();
+        this.rotation = this.gameObject.rotation();
 
         gameObject = this.gameObject;
         while(gameObject.attributes._parent !== null) {
@@ -360,7 +421,21 @@ var MoveXComponent = BaseComponent.extend({
     type: 'MoveXComponent',
 
     step: function(dt) {
-        this.position.x += dt * this.gameObject.get('speed');
+        var multiplier = 1;
+        
+        if (this.scene.inputManager().currentKey() === 'S') {
+            return;
+        }
+        if (this.scene.inputManager().currentKey() === 'D') {
+            multiplier = 2;
+        }
+        if (this.scene.inputManager().currentKey() === 'A') {
+            multiplier = -2;
+        }
+
+
+        this.position.x += dt * this.gameObject.get('speed') * multiplier;
+        // this.position.add(Vector2.right().multiply(dt * this.gameObject.get('speed') * multiplier));
 
         if (this.position.x > this.scene.width()) {
             this.position.x = 0 - this.gameObject.width();
@@ -371,6 +446,9 @@ var MoveYComponent = BaseComponent.extend({
     type: 'MoveYComponent',
 
     step: function(dt) {
+        if (this.scene.inputManager().currentKey() === 'W') {
+            return;
+        }
         this.position.y += dt * this.gameObject.get('speed');
 
         if (this.position.y > this.scene.height()) {
@@ -378,13 +456,39 @@ var MoveYComponent = BaseComponent.extend({
         }
     }
 });
+var RotationComponent = BaseComponent.extend({
+    type: 'RotationComponent',
 
+    step: function(dt) {
+        if (this.scene.inputManager().currentKey() === 'D') {
+            this.gameObject.attributes.rotation += (100 * dt * Math.PI)/180;
+        }
+        if (this.scene.inputManager().currentKey() === 'A') {
+            this.gameObject.attributes.rotation -= (100 * dt * Math.PI)/180;
+        }
+    }
+});
+
+var MoveComponent = BaseComponent.extend({
+    type: 'MoveComponent',
+
+    step: function(dt) {
+        var pos = this.gameObject.position();
+        if (this.scene.inputManager().currentKey() === 'W') {
+            this.gameObject.set('position', pos.add(this.gameObject.forward().multiply(100 * dt)));
+        }
+        if (this.scene.inputManager().currentKey() === 'S') {
+            this.gameObject.set('position', pos.subtract(this.gameObject.forward().multiply(100 * dt)));
+        }
+    }
+});
 
 var Entity = GameObject.extend({
     type: 'Entity',
 
     postInitialize: function() {
         this.components.add([
+            new RotationComponent(),
             new MoveXComponent(),
             new MoveYComponent()
         ]);

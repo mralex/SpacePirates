@@ -29,19 +29,18 @@
 		$(function() {
 			var game = new Engine({ el: '#gameCanvas' });
 			window.game = game;
-			// debugger;
-			var scene = new Scene({ w: game.width(), h: game.height() });
-			// var foo = new Foo();
+
+			var scene = new Scene({ name: 'test1', w: game.width(), h: game.height() });
 			game.scenes.add(scene);
 
 			scene.load(function() {
 				for (var j = 0; j < 10; j++) {
 					for (var i  = 0; i < 20; i++) {
 						var entity = new Entity({
-							position: new Vector3(1, i * 20),
+							position: new Vector2(1, i * 20),
 							w: Math.random() * 150 + 50,
 							h: 10,
-							fillStyle: '#0f0',
+							fillStyle: 'rgb(' + 12 * i + ', 96, 96)',
 							speed: Math.random() * 175 + 25
 						});
 
@@ -49,8 +48,24 @@
 					}
 				}
 			});
-			
-			game.setActiveScene(0);
+
+			var scene2 = new Scene({ name: 'test2', w: game.width(), h: game.height() });
+			game.scenes.add(scene2);
+
+			scene2.load(function() {
+				var entity = new GameObject({
+					position: new Vector2(this.width() / 2, this.height() / 2),
+					w: 20,
+					h: 20
+				});
+				entity.components.add([
+					new MoveComponent(),
+					new RotationComponent()
+				]);
+				this.children.add(entity);
+			});
+
+			game.setActiveScene('test2');
 			game.render();
 		});
 	</script>
