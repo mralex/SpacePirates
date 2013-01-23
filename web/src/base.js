@@ -174,7 +174,8 @@ var Renderer = Backbone.View.extend({
 
     start: function() {
         this.frames = 0;
-        this.lastFPSTime = new Date();
+        // this.lastFPSTime = +new Date();
+        this.lastFPSTime = 0;
         this.previousDeltaTime = +new Date();
         this.loop(this.previousDeltaTime);
     },
@@ -186,12 +187,12 @@ var Renderer = Backbone.View.extend({
         this.step(dt);
         this.draw();
 
-        this.frames++;
-        if (timestamp - this.lastFPSTime >= 1000) {
-            this.lastFPSTime = timestamp;
-            $('#fps').text(this.frames + ' fps');
-            this.frames = 0;
-        }
+        // this.frames++;
+        // if (timestamp - this.lastFPSTime >= 1000) {
+        //     this.lastFPSTime = timestamp;
+        //     $('#fps').text(this.frames + ' fps');
+        //     this.frames = 0;
+        // }
 
         window.requestAnimationFrame(this.loop);
     },
