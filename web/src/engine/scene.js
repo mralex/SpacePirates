@@ -4,9 +4,10 @@ define([
     'jquery',
     'underscore',
     'backbone',
+    './math/vector2',
     './game_object',
     './input_manager'
-], function($, _, Backbone, GameObject, InputManager) {
+], function($, _, Backbone, Vector2, GameObject, InputManager) {
     var Scene = GameObject.extend({
         type: 'Scene',
 
@@ -18,6 +19,15 @@ define([
 
             return _.extend(Scene.__super__.defaults(), defaults);
         },
+
+        absolutePosition: function() {
+            return Vector2.zero();
+        },
+
+        absoluteRotation: function() {
+            return 0;
+        },
+
         draw: function(ctx) {
             this.children.invoke('draw', ctx);
 

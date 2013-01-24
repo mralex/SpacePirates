@@ -16,6 +16,7 @@ define([
                 id: UUID.uuidFast(),
                 position: Vector2.zero(),
                 rotation: 0.0,
+                absoluteRotation: 0.0,
                 w: 0,
                 h: 0,
                 render: true,
@@ -41,6 +42,39 @@ define([
             return this.attributes.position;
         },
 
+        absolutePosition: function() {
+            var absolutePosition, pos, r, sin, cos, x, y;
+            // get parent position
+            if (this.parent().type === 'Scene') {
+                return this.position();
+            } else {
+                absolutePosition = this.parent().absolutePosition();
+            }
+
+            r = this.absoluteRotation();
+
+            // add our local position
+            pos = this.position();
+
+            sin = Math.sin(r);
+            cos = Math.cos(r);
+
+            x = (pos.x * cos) - (pos.y * sin);
+            y = (pos.y * cos) + (pos.x * sin);
+
+            return absolutePosition.add(new Vector2(x, y));
+        },
+
+        absoluteRotation: function() {
+            var r;
+
+            if (this.parent()) {
+                r = this.parent().absoluteRotation();
+            }
+
+            return this.rotation() + r;
+        },
+
         rotation: function() {
             return this.attributes.rotation;
         },
@@ -59,16 +93,24 @@ define([
             return this.attributes._parent;
         },
 
+        _forward: function(rotation) {
+            var rot = rotation - 1.570;
+
+            return new Vector2(Math.cos(rot), Math.sin(rot));
+        },
+
         forward: function() {
-            var rot = this.rotation() - 1.570;
+            return this._forward(this.rotation());
+        },
+
+        _right: function(rotation) {
+            var rot = rotation;
 
             return new Vector2(Math.cos(rot), Math.sin(rot));
         },
 
         right: function() {
-            var rot = this.rotation();
-
-            return new Vector2(Math.cos(rot), Math.sin(rot));
+            return this._right(this.rotation());
         },
 
         destroy: function() {
