@@ -67,6 +67,14 @@ define([
 
         normalizedDot: function(v) {
             return this.normalize().dot(v.normalize());
+        },
+
+        greaterThan: function(v) {
+            return (this.x > v.x && this.y > v.y);
+        },
+
+        lessThan: function(v) {
+            return (this.x < v.x && this.y < v.y);
         }
     };
 

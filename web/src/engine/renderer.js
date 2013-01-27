@@ -39,7 +39,7 @@ define([
         },
 
         step: function(dt) {
-            //$('#msg').text(new Date() + ': ' + dt);
+            // $('#msg').text(dt);
             this.game.activeScene.step(dt);
         },
 
