@@ -105,10 +105,10 @@ define([
                 }
             }
 
-            pointsInRange.concat(this.northWest.queryRange(range));
-            pointsInRange.concat(this.northEast.queryRange(range));
-            pointsInRange.concat(this.southWest.queryRange(range));
-            pointsInRange.concat(this.southEast.queryRange(range));
+            pointsInRange = pointsInRange.concat(this.northWest.queryRange(range));
+            pointsInRange = pointsInRange.concat(this.northEast.queryRange(range));
+            pointsInRange = pointsInRange.concat(this.southWest.queryRange(range));
+            pointsInRange = pointsInRange.concat(this.southEast.queryRange(range));
 
             return pointsInRange;
         },
