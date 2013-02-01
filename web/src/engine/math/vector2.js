@@ -48,6 +48,26 @@ define([
             return new Vector2(this.x / d, this.y / d);
         },
 
+        rotate: function(r, origin) {
+            var sin = Math.sin(-r),
+                cos = Math.cos(-r),
+                x,
+                y;
+
+            if (!origin) {
+                origin = Vector2.zero();
+            }
+
+            x = (origin.x + (this.x - origin.x) * cos) + ((this.y - origin.y) * sin);
+            y = (origin.y - (this.x - origin.x) * sin) + ((this.y - origin.y) * cos);
+
+            return new Vector2(x, y);
+        },
+
+        angle: function() {
+            return Math.atan2(this.y, this.x);
+        },
+
         sqrMagnitude: function() {
             return (this.x * this.x) + (this.y * this.y);
         },
@@ -67,6 +87,14 @@ define([
 
         normalizedDot: function(v) {
             return this.normalize().dot(v.normalize());
+        },
+
+        leftNormal: function() {
+            return new Vector2(this.y, -this.x);
+        },
+
+        rightNormal: function() {
+            return new Vector2(-this.y, this.x);
         },
 
         greaterThan: function(v) {

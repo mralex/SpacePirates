@@ -5,13 +5,14 @@ define([
     'underscore',
     'backbone',
     './math/vector2',
+    './math/bounding_box',
     './math/uuid',
     './game_object_collection'
-], function($, _, Backbone, Vector2, UUID, GameObjectCollection) {
+], function($, _, Backbone, Vector2, AABoundingBox, UUID, GameObjectCollection) {
     var GameObject = Backbone.Model.extend({
         type: 'GameObject',
 
-        defaults: function() { 
+        defaults: function() {
             return {
                 id: UUID.uuidFast(),
                 position: Vector2.zero(),
@@ -25,14 +26,17 @@ define([
         },
 
         initialize: function(options) {
-            _.bindAll(this, 'destroy');
+            _.bindAll(this, 'draw', 'destroy');
 
             this.set('type', this.type);
             this.components = new GameObjectCollection(null, { gameObject: this });
             this.children = new GameObjectCollection(null, { gameObject: this });
 
             this.on('change:_parent', this._parentChanged);
+            this.on('change:rotation', this._rotationChanged);
+
             this.on('destroy', this._destroyChildren);
+            this.on('draw', this.thisDraw);
 
             this.postInitialize();
         },
@@ -43,7 +47,7 @@ define([
         },
 
         absolutePosition: function() {
-            var absolutePosition, pos, r, sin, cos, x, y;
+            var absolutePosition, r;
             // get parent position
             if (this.parent().type === 'Scene') {
                 return this.position();
@@ -52,17 +56,7 @@ define([
             }
 
             r = this.absoluteRotation();
-
-            // add our local position
-            pos = this.position();
-
-            sin = Math.sin(r);
-            cos = Math.cos(r);
-
-            x = (pos.x * cos) - (pos.y * sin);
-            y = (pos.y * cos) + (pos.x * sin);
-
-            return absolutePosition.add(new Vector2(x, y));
+            return absolutePosition.add(this.position().rotate(r, Vector2.zero()));
         },
 
         absoluteRotation: function() {
@@ -73,6 +67,62 @@ define([
             }
 
             return this.rotation() + r;
+        },
+
+        boundingBox: function() {
+            if (!this._boundingBox) {
+                this._boundingBox = new AABoundingBox(this.position(), new Vector2(this.width() * 0.5, this.height() * 0.5));
+            }
+            return this._boundingBox;
+        },
+
+        bounds: function() {
+            if (!this._bounds) {
+                var bounds = this.boundingBox(),
+                    pos = this.position(),
+                    w = this.width(),
+                    h = this.height(),
+                    coords = bounds.rectCoordinates(),
+                    rect = bounds.toRect();
+
+                this.children.each(function(child) {
+                    var cb = child.boundingBox(),
+                        cp = child.position(),
+                        cw = child.width(),
+                        ch = child.height(),
+                        absPos = pos.add(cp),
+                        childRect = cb.toRectAtPoint(absPos),
+                        childCoords = cb.rectCoordinatesAtPoint(absPos);
+
+                    if (childCoords.tl.x < coords.tl.x) {
+                        // top left
+                        w += coords.tl.x - childCoords.tl.x;
+                        coords.tl.x = childCoords.tl.x;
+                    }
+
+                    if (childCoords.tr.x > coords.tr.x) {
+                        w += childCoords.tr.x - coords.tr.x;
+                        coords.tr.x = childCoords.tr.x;
+                    }
+
+                    if (childCoords.tl.y < coords.tl.y) {
+                        h += coords.tl.y - childCoords.tl.y;
+                        coords.tl.y = childCoords.tl.y;
+                    }
+
+                    if (childCoords.bl.y > coords.bl.y) {
+                        h += childCoords.bl.y - coords.bl.y;
+                        coords.bl.y = childCoords.bl.y;
+                    }
+                });
+
+                this._bounds = {
+                    w: w,
+                    h: h
+                };
+            }
+
+            return this._bounds;
         },
 
         rotation: function() {
@@ -124,7 +174,10 @@ define([
 
             this.thisStep(dt);
 
+            this._boundingBox = null;
+
             this.children.invoke('step', dt);
+            this.trigger('lateStep', dt);
         },
 
         thisStep: function(dt) {},
@@ -137,10 +190,12 @@ define([
             ctx.rotate(this.rotation());
 
             if (this.get('render')) {
-                this.thisDraw(ctx);
+                // this.thisDraw(ctx);
+                this.trigger('draw', ctx);
             }
 
             this.children.invoke('draw', ctx);
+            this.trigger('lateDraw', ctx);
             ctx.restore();
         },
 
@@ -158,6 +213,10 @@ define([
 
         _parentChanged: function() {
             this.components.invoke('_parentChanged');
+        },
+
+        _rotationChanged: function() {
+            this._bounds = null;
         },
 
         _destroyChildren: function() {

@@ -94,11 +94,16 @@ require([
         resetTimer: 0,
 
         makeTree: function() {
-            var pos = new Engine.Vector2(this.width() * 0.5, this.height() * 0.5);
-            this.points = [];
+            var pos = new Engine.Vector2(this.width() * 0.5, this.height() * 0.5),
+                i;
             this.quadTree = new QT.QuadTree(new AABoundingBox(pos, pos), this.get('nodeCapacity'));
 
-            this.generatePoints();
+            // this.generatePoints();
+
+            for (i = 0; i < this.points.length; i++) {
+                this.quadTree.insert(this.points[i]);
+            }
+            // this.generateVisual();
         },
 
         step: function(dt) {
@@ -108,9 +113,11 @@ require([
             this.resetTimer -= dt;
             
             if (this.resetTimer <= 0) {
-                this.makeTree();
+                // this.makeTree();
+                this.generatePoints();
                 this.resetTimer = this.get('delay');
             }
+            this.makeTree();
         },
 
         generatePoints: function() {
@@ -132,10 +139,10 @@ require([
                 point = new Engine.Vector2(x, y);
 
                 this.points.push(point);
-                this.quadTree.insert(point);
+                // this.quadTree.insert(point);
             }
 
-            this.generateVisual();
+            // this.generateVisual();
         },
 
         generateVisual: function() {

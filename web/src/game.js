@@ -1,10 +1,78 @@
 define(['jquery', 'underscore', 'backbone', 'src/engine'], function($, _, Backbone, Engine) {
     var init = function() {
+        var SceneCollisionManager = Engine.BaseComponent.extend({
+                type: 'SceneCollisionManager',
+
+                onStart: function() {
+                    this.set('colliders', []);
+
+                    _.bindAll(this, 'childAdded', 'childRemoved', 'lateStep');
+                    this.gameObject.children.on('add', this.childAdded);
+                    this.gameObject.children.on('remove', this.childRemoved);
+                    this.gameObject.on('lateStep', this.lateStep);
+                },
+
+                childAdded: function(gameObject) {
+                    if (gameObject.components.ofType('AxisAlignedBoundsComponent')) {
+                        this.attributes.colliders.push(gameObject);
+                    }
+                },
+
+                childRemoved: function(gameObject) {
+                    var index = this.attributes.colliders.indexOf(gameObject);
+                    if (index > -1) {
+                        this.attributes.colliders.splice(index, 1);
+                    }
+                },
+
+                lateStep: function(dt) {
+                    var colliders = this.attributes.colliders,
+                        colliderCount = colliders.length,
+                        colliderA,
+                        colliderB,
+                        componentA,
+                        componentB,
+                        boxA,
+                        boxB,
+                        i,
+                        j;
+
+                    for (i = 0; i < colliderCount; i++) {
+                        colliderA = colliders[i];
+                        for (j = 0; j < colliderCount; j++) {
+                            colliderB = colliders[j];
+                            if (colliderA === colliderB) {
+                                continue;
+                            }
+
+                            componentA = colliderA.components.ofType('AxisAlignedBoundsComponent');
+                            componentB = colliderB.components.ofType('AxisAlignedBoundsComponent');
+                            boxA = componentA.getAABoundingBox();
+                            boxB = componentB.getAABoundingBox();
+
+                            if (boxA.intersects(boxB)) {
+
+                                if (componentA.colliders.indexOf(colliderB) < 0) {
+                                    colliderA.trigger('collision', colliderB);
+                                    componentA.colliders.push(colliderB);
+                                }
+                                if (componentB.colliders.indexOf(colliderA) < 0) {
+                                    colliderB.trigger('collision', colliderA);
+                                    componentB.colliders.push(colliderA);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
         var game = new Engine.Engine({ el: '#gameCanvas' });
         window.game = game;
 
         var scene = new Engine.Scene({ name: 'test2', w: game.width(), h: game.height() });
         game.scenes.add(scene);
+
+        scene.components.add(new SceneCollisionManager());
 
         scene.load(function() {
             var RotationComponent = Engine.BaseComponent.extend({
@@ -78,6 +146,168 @@ define(['jquery', 'underscore', 'backbone', 'src/engine'], function($, _, Backbo
                             this.reloadTimer -= dt;
                         }
                     }
+                }),
+                RadialBoundsComponent = Engine.BaseComponent.extend({
+                    type: 'RadialBoundsComponent',
+                    onStart: function() {
+                        _.bindAll(this, 'drawBounds');
+                        this.gameObject.on('lateDraw', this.drawBounds);
+                    },
+                    drawBounds: function(ctx) {
+                        var r = this.get('radius');
+
+                        ctx.beginPath();
+                        ctx.strokeStyle = '#0f0';
+                        ctx.lineWidth = 0.25;
+                        ctx.arc(0, 0, r, 0, 2 * Math.PI, false);
+                        ctx.closePath();
+                        ctx.stroke();
+                    }
+                }),
+                RotatedBoundsComponent = Engine.BaseComponent.extend({
+                    type: 'RectBoundsComponent',
+                    onStart: function() {
+                        _.bindAll(this, 'drawBounds');
+                        this.gameObject.on('lateDraw', this.drawBounds);
+                    },
+                    step: function(dt) {
+                        // get the bounds
+                        var bounds = this.gameObject.boundingBox(),
+                            pos = this.gameObject.position(),
+                            w = this.gameObject.width(),
+                            h = this.gameObject.height(),
+                            coords = bounds.rectCoordinates(),
+                            rect = bounds.toRect();
+
+                        this.gameObject.children.each(function(child) {
+                            if (!child.get('render')) {
+                                return;
+                            }
+
+                            var cb = child.boundingBox(),
+                                cp = child.position(),
+                                cw = child.width(),
+                                ch = child.height(),
+                                absPos = pos.add(cp),
+                                childRect = cb.toRectAtPoint(absPos),
+                                childCoords = cb.rectCoordinatesAtPoint(absPos);
+
+                            if (childCoords.tl.x < coords.tl.x) {
+                                // top left
+                                w += coords.tl.x - childCoords.tl.x;
+                                coords.tl.x = childCoords.tl.x;
+                            }
+
+                            if (childCoords.tr.x > coords.tr.x) {
+                                w += childCoords.tr.x - coords.tr.x;
+                                coords.tr.x = childCoords.tr.x;
+                            }
+
+                            if (childCoords.tl.y < coords.tl.y) {
+                                h += coords.tl.y - childCoords.tl.y;
+                                coords.tl.y = childCoords.tl.y;
+                            }
+
+                            if (childCoords.bl.y > coords.bl.y) {
+                                h += childCoords.bl.y - coords.bl.y;
+                                coords.bl.y = childCoords.bl.y;
+                            }
+                        });
+
+                        coords.tr.x = coords.tl.x + w;
+                        coords.tr.y = coords.tl.y;
+                        coords.bl.x = coords.tl.x;
+                        coords.br.x = coords.tl.x + w;
+                        coords.br.y = coords.bl.y;
+
+                        coords.tl = coords.tl.rotate(this.gameObject.rotation(), pos);
+                        coords.tr = coords.tr.rotate(this.gameObject.rotation(), pos);
+                        coords.bl = coords.bl.rotate(this.gameObject.rotation(), pos);
+                        coords.br = coords.br.rotate(this.gameObject.rotation(), pos);
+
+                        this.coords = coords;
+                    },
+                    drawBounds: function(ctx) {
+                        if (!this.coords) {
+                            this.step();
+                        }
+                        ctx.save();
+                        ctx.setTransform(1, 0, 0, 1, 0, 0);
+                        ctx.rotate(0);
+                        ctx.strokeStyle = '#0f0';
+                        ctx.lineWidth = 0.75;
+                        ctx.beginPath();
+                        ctx.moveTo(this.coords.tl.x, this.coords.tl.y);
+                        ctx.lineTo(this.coords.tr.x, this.coords.tr.y);
+                        ctx.lineTo(this.coords.br.x, this.coords.br.y);
+                        ctx.lineTo(this.coords.bl.x, this.coords.bl.y);
+                        ctx.lineTo(this.coords.tl.x, this.coords.tl.y);
+                        ctx.closePath();
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+                }),
+                AxisAlignedBoundsComponent = Engine.BaseComponent.extend({
+                    type: 'AxisAlignedBoundsComponent',
+                    onStart: function() {
+                        _.bindAll(this, 'drawBounds', 'onCollision');
+                        this.gameObject.on('lateDraw', this.drawBounds);
+                        this.gameObject.on('collision', this.onCollision);
+                        // this.gameObject.children.on('remove', this.calculateBounds);
+                        // this.gameObject.children.on('add', this.calculateBounds);
+
+                        this.colliders = [];
+                    },
+
+                    getAABoundingBox: function() {
+                        return Engine.AABoundingBox.fromRect(this.getRect());
+                    },
+
+                    abs: function(v) {
+                        return (v < 0 ? -v : v);
+                    },
+
+                    getRect: function() {
+                        if (!this.rect) {
+                            var pos = this.gameObject.position(),
+                                sin = this.abs(Math.sin(this.gameObject.rotation())),
+                                cos = this.abs(Math.cos(this.gameObject.rotation()));
+
+                            w = (this.gameObject.bounds().h * sin) + (this.gameObject.bounds().w * cos);
+                            h = (this.gameObject.bounds().h * cos) + (this.gameObject.bounds().w * sin);
+                            x = pos.x - (w / 2);
+                            y = pos.y - (h / 2);
+
+                            this.rect = {
+                                x: x,
+                                y: y,
+                                w: w,
+                                h: h
+                            };
+                        }
+
+                        return this.rect;
+                    },
+
+                    step: function(dt) {
+                        this.colliders = [];
+                        this.rect = null;
+                        this.strokeColor = '#0f0';
+                    },
+
+                    drawBounds: function(ctx) {
+                        ctx.save();
+                        ctx.setTransform(1, 0, 0, 1, 0, 0);
+                        ctx.rotate(0);
+                        ctx.strokeStyle = this.strokeColor;
+                        ctx.lineWidth = 0.75;
+                        ctx.strokeRect(this.getRect().x, this.getRect().y, this.getRect().w, this.getRect().h);
+                        ctx.restore();
+                    },
+
+                    onCollision: function(gameObject) {
+                        this.strokeColor = '#f00';
+                    }
                 });
 
             var arm, entity = new Engine.GameObject({
@@ -133,12 +363,35 @@ define(['jquery', 'underscore', 'backbone', 'src/engine'], function($, _, Backbo
                                 h: 3
                             });
 
-                        bullet.components.add([new BulletComponent()]);
+                        bullet.components.add([new BulletComponent(), new AxisAlignedBoundsComponent()]);
                         return bullet;
                     }
-                })
+                }),
+                new AxisAlignedBoundsComponent({})
             ]);
             this.children.add(entity);
+
+            var wall = new Engine.GameObject({
+                position: new Engine.Vector2(100, this.height() / 2),
+                w: 20,
+                h: 50,
+                render: false,
+                hp: 10
+            });
+            wall.components.add([new AxisAlignedBoundsComponent()]);
+            this.children.add(wall);
+
+            wall.on('collision', function(c) {
+                c.destroy();
+
+                var hp = this.get('hp');
+                hp--;
+                this.set('hp', hp);
+
+                if (hp <= 0) {
+                    this.destroy();
+                }
+            });
         });
 
         game.setActiveScene('test2');
