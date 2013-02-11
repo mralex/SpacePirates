@@ -40,6 +40,18 @@ define([
 
         step: function(dt) {
             // $('#msg').text(dt);
+            if (dt < 0) {
+                return;
+            }
+
+            if (dt > 0.1) {
+                // When delta time increases to an unreasonable size,
+                // it indicates the browser tab went out of focus.
+                // Reset delta time to a sensible size, effectively
+                // starting the simulation from the period the user
+                // paused it.
+                dt = 0.017;
+            }
             this.game.activeScene.step(dt);
         },
 
