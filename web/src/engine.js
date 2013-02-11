@@ -11,8 +11,9 @@ define([
 	'./engine/base_component',
 	'./engine/component_collection',
 	'./engine/scene',
-	'./engine/math/bounding_box'
-], function(UUID, Vector2, Engine, Context, Renderer, InputListener, InputManager, GameObject, GameObjectCollection, BaseComponent, ComponentCollection, Scene, AABoundingBox) {
+	'./engine/math/bounding_box',
+	'./engine/gui'
+], function(UUID, Vector2, Engine, Context, Renderer, InputListener, InputManager, GameObject, GameObjectCollection, BaseComponent, ComponentCollection, Scene, AABoundingBox, Gui) {
 	return {
 		UUID: UUID,
 		Vector2: Vector2,
@@ -26,6 +27,7 @@ define([
 		BaseComponent: BaseComponent,
 		ComponentCollection: ComponentCollection,
 		Scene: Scene,
-		AABoundingBox: AABoundingBox
+		AABoundingBox: AABoundingBox,
+		Gui: Gui
 	};
 });
