@@ -20,6 +20,7 @@ define([
                 absoluteRotation: 0.0,
                 w: 0,
                 h: 0,
+                fillStyle: '#fff',
                 render: true,
                 _parent: null
             };
@@ -37,8 +38,6 @@ define([
 
             this.on('destroy', this._destroyChildren);
             this.on('draw', this.thisDraw);
-
-            this.postInitialize();
         },
 
         position: function() {
@@ -94,31 +93,30 @@ define([
                         childRect = cb.toRectAtPoint(absPos),
                         childCoords = cb.rectCoordinatesAtPoint(absPos);
 
+                    if ((cw === 0 && ch === 0) || !child.get('render')) {
+                        return;
+                    }
+
                     if (childCoords.tl.x < coords.tl.x) {
-                        // top left
-                        w += coords.tl.x - childCoords.tl.x;
                         coords.tl.x = childCoords.tl.x;
                     }
 
                     if (childCoords.tr.x > coords.tr.x) {
-                        w += childCoords.tr.x - coords.tr.x;
                         coords.tr.x = childCoords.tr.x;
                     }
 
                     if (childCoords.tl.y < coords.tl.y) {
-                        h += coords.tl.y - childCoords.tl.y;
                         coords.tl.y = childCoords.tl.y;
                     }
 
                     if (childCoords.bl.y > coords.bl.y) {
-                        h += childCoords.bl.y - coords.bl.y;
                         coords.bl.y = childCoords.bl.y;
                     }
                 });
 
                 this._bounds = {
-                    w: w,
-                    h: h
+                    w: coords.tr.x - coords.tl.x,
+                    h: coords.bl.y - coords.tl.y
                 };
             }
 
@@ -130,12 +128,10 @@ define([
         },
 
         width: function() {
-            //return this.get('w');
             return this.attributes.w;
         },
 
         height: function() {
-            //return this.get('h');
             return this.attributes.h;
         },
 
@@ -143,14 +139,14 @@ define([
             return this.attributes._parent;
         },
 
-        _forward: function(rotation) {
+        _up: function(rotation) {
             var rot = rotation - 1.570;
 
             return new Vector2(Math.cos(rot), Math.sin(rot));
         },
 
-        forward: function() {
-            return this._forward(this.rotation());
+        up: function() {
+            return this._up(this.rotation());
         },
 
         _right: function(rotation) {
@@ -172,6 +168,7 @@ define([
         step: function(dt) {
             this.components.invoke('step', dt);
 
+            this.trigger('step', dt);
             this.thisStep(dt);
 
             this._boundingBox = null;
@@ -190,7 +187,6 @@ define([
             ctx.rotate(this.rotation());
 
             if (this.get('render')) {
-                // this.thisDraw(ctx);
                 this.trigger('draw', ctx);
             }
 
@@ -200,14 +196,7 @@ define([
         },
 
         thisDraw: function(ctx) {
-            var pos = this.position();
-
-            // if (pos.x < 0 || pos.x > this.width() || pos.y < 0 || pos.y > this.height()) {
-            //     return;
-            // }
-
             ctx.fillStyle = this.get('fillStyle') || '#fff';
-
             ctx.fillRect(-(this.width() / 2), -(this.height() / 2), this.width(), this.height());
         },
 
@@ -224,9 +213,7 @@ define([
                 child.trigger('destroy');
             });
             this.children.remove(this.children.where({ _destroyed: true }));
-        },
-
-        postInitialize: function() {}
+        }
     });
 
     return GameObject;
