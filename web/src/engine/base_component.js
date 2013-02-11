@@ -13,7 +13,7 @@ define([
             defaults = {
                 gameObject: null
             };
-            return _.extend(BaseComponent.__super__.defaults(), defaults);
+            return _.extend(BaseComponent.__super__.defaults.call(this), defaults);
         },
 
         setup: function() {},
