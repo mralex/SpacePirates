@@ -1,6 +1,7 @@
 define([
-    '../base_component'
-], function(BaseComponent) {
+    '../base_component',
+    '../math/vector2'
+], function(BaseComponent, Vector2) {
     var SceneCollisionManager = BaseComponent.extend({
         type: 'SceneCollisionManager',
 
@@ -54,16 +55,37 @@ define([
                     if (boxA.intersects(boxB)) {
 
                         if (componentA.colliders.indexOf(colliderB) < 0) {
-                            colliderA.trigger('collision', colliderB);
+                            colliderA.trigger(
+                                'collision',
+                                colliderB,
+                                this.calculateOverlap(colliderA, colliderB)
+                            );
                             componentA.colliders.push(colliderB);
                         }
                         if (componentB.colliders.indexOf(colliderA) < 0) {
-                            colliderB.trigger('collision', colliderA);
+                            colliderB.trigger('collision',
+                                colliderA,
+                                this.calculateOverlap(colliderB, colliderA)
+                            );
                             componentB.colliders.push(colliderA);
                         }
                     }
                 }
             }
+        },
+
+        calculateOverlap: function(objectA, objectB) {
+            var aBounds = objectA.components.ofType('ColliderComponent').getBounds(),
+                bBounds = objectB.components.ofType('ColliderComponent').getBounds(),
+
+                direction = objectA.position().subtract(objectB.position()),
+
+                ox, oy;
+
+            ox = (aBounds.halfDimension.x + bBounds.halfDimension.x) - (Math.abs(direction.x));
+            oy = (aBounds.halfDimension.y + bBounds.halfDimension.y) - (Math.abs(direction.y));
+
+            return new Vector2(ox, oy);
         }
     });
 

@@ -14,7 +14,7 @@ define([
             defaults = {
                 drawBounds: true
             };
-            return _.extend(AxisAlignedColliderComponent.__super__.defaults.call(this), defaults);
+            return _.extend({}, AxisAlignedColliderComponent.__super__.defaults.call(this), defaults);
         },
 
         onStart: function() {
