@@ -58,8 +58,20 @@ define([
                     },
 
                     onStart: function() {
+                        _.bindAll(this, 'collision');
+
                         _.delay(this.gameObject.destroy, this.get('ttl'));
+                        this.gameObject.on('collision', this.collision);
                     },
+
+                    collision: function(collider) {
+                        if (collider.get('tag') === 'player') {
+                            return;
+                        }
+
+                        this.gameObject.destroy();
+                    },
+
                     step: function(dt) {
                         var pos = this.gameObject.position();
 
@@ -195,6 +207,59 @@ define([
                     }
                 });
 
+            var SweeperAI = Engine.BaseComponent.extend({
+                type: 'SweeperAI',
+
+                defaults: function() {
+                    var defaults = {
+                        speed: 150,
+                        v: new Engine.Vector2(1, 0)
+                    };
+
+                    return _.extend({}, SweeperAI.__super__.defaults.call(this), defaults);
+                },
+
+                onStart: function() {
+                    _.bindAll(this, 'collision', 'step');
+                    this.gameObject.on('collision', this.collision);
+                },
+
+                collision: function(c, overlap) {
+                    if (c.get('tag') === 'wall') {
+                        var pos = this.gameObject.position(),
+                            direction = this.gameObject.position().subtract(c.position());
+
+                        if (overlap.x < overlap.y) {
+                            if (direction.x < 0) {
+                                // pos.x -= overlap.x;
+                                this.set('v', new Engine.Vector2(-1, 0));
+                            } else {
+                                // pos.x += overlap.x;
+                                this.set('v', new Engine.Vector2(1, 0));
+                            }
+                        } else {
+                            if (direction.y < 0) {
+                                // pos.y -= overlap.y;
+                                this.set('v', new Engine.Vector2(0, -1));
+                            } else {
+                                // pos.y += overlap.y;
+                                this.set('v', new Engine.Vector2(0, 1));
+                            }
+                        }
+
+                        // this.gameObject.set('position', pos);
+                    }
+                },
+
+                step: function(dt) {
+                    var pos = this.gameObject.position(),
+                        speed = this.get('speed');
+
+                    pos = pos.add(this.get('v').multiply(speed * dt));
+                    this.gameObject.set('position', pos);
+                }
+            });
+
             var arm, 
                 entity = new ColliderEntity({
                     position: new Engine.Vector2(this.width() / 2, this.height() / 2),
@@ -258,36 +323,26 @@ define([
             ]);
             this.children.add(entity);
 
-            entity.on('collision', function(c) {
+            entity.on('collision', function(c, overlap) {
                 if (c.get('tag') === 'bullet') {
                     return;
                 }
 
                 if (c.get('tag') === 'wall') {
                     var pos = this.position(),
-                        v = this.get('velocity'),
+                        direction = this.position().subtract(c.position());
 
-                        wallBounds = c.components.ofType('ColliderComponent').getBounds(),
-                        bounds = this.components.ofType('ColliderComponent').getBounds(),
-
-                        direction = this.position().subtract(c.position()),
-
-                        ox, oy;
-
-                    ox = (bounds.halfDimension.x + wallBounds.halfDimension.x) - (Math.abs(direction.x));
-                    oy = (bounds.halfDimension.y + wallBounds.halfDimension.y) - (Math.abs(direction.y));
-
-                    if (ox < oy) {
+                    if (overlap.x < overlap.y) {
                         if (direction.x < 0) {
-                            pos.x -= ox;
+                            pos.x -= overlap.x;
                         } else {
-                            pos.x += ox;
+                            pos.x += overlap.x;
                         }
                     } else {
                         if (direction.y < 0) {
-                            pos.y -= oy;
+                            pos.y -= overlap.y;
                         } else {
-                            pos.y += oy;
+                            pos.y += overlap.y;
                         }
                     }
 
@@ -296,31 +351,123 @@ define([
             });
 
             var wall = new ColliderEntity({
-                position: new Engine.Vector2(100, this.height() / 2),
+                position: new Engine.Vector2(150, this.height() / 2),
                 w: 50,
                 h: 100,
-                render: true,
                 hp: 10,
                 tag: 'wall'
             });
             this.children.add(wall);
 
-            wall.on('collision', function(c) {
-                if (c.get('tag') === 'player') {
-                    return;
-                }
+            this.children.add(new ColliderEntity({
+                position: new Engine.Vector2(this.width() - 150, this.height() / 2),
+                w: 50,
+                h: 100,
+                tag: 'wall'
+            }));
 
-                c.destroy();
-
-                var hp = this.get('hp');
-                hp--;
-                this.set('hp', hp);
-
-                if (hp <= 0) {
-                    this.destroy();
-                    thisScene.children.withName('score')[0].set('text', 'Score: 100');
-                }
+            var sweeper = new ColliderEntity({
+                position: new Engine.Vector2(30, 40),
+                w: 20,
+                h: 20,
+                hp: 15,
+                tag: 'mob',
+                fillStyle: '#ff0'
             });
+
+            sweeper.components.add(new SweeperAI({
+                speed: 155
+            }));
+            this.children.add(sweeper);
+
+            sweeper = new ColliderEntity({
+                position: new Engine.Vector2(50, 80),
+                w: 20,
+                h: 20,
+                hp: 15,
+                tag: 'mob',
+                fillStyle: '#ff0'
+            });
+
+            sweeper.components.add(new SweeperAI({
+                speed: 165
+            }));
+            this.children.add(sweeper);
+
+            sweeper = new ColliderEntity({
+                position: new Engine.Vector2(20, 170),
+                w: 20,
+                h: 20,
+                hp: 15,
+                tag: 'mob',
+                fillStyle: '#ff0'
+            });
+
+            sweeper.components.add(new SweeperAI({
+                speed: 155
+            }));
+            this.children.add(sweeper);
+
+            sweeper = new ColliderEntity({
+                position: new Engine.Vector2(this.width() - 20, 170),
+                w: 20,
+                h: 20,
+                hp: 15,
+                tag: 'mob',
+                fillStyle: '#ff0'
+            });
+
+            sweeper.components.add(new SweeperAI({
+                speed: 155
+            }));
+            this.children.add(sweeper);
+
+            sweeper = new ColliderEntity({
+                position: new Engine.Vector2(150, 300),
+                w: 20,
+                h: 20,
+                hp: 15,
+                tag: 'mob',
+                fillStyle: '#ff0'
+            });
+
+            sweeper.components.add(new SweeperAI({
+                speed: 155,
+                v: new Engine.Vector2(0, 1)
+            }));
+            this.children.add(sweeper);
+
+            sweeper = new ColliderEntity({
+                position: new Engine.Vector2(this.width() - 150, 350),
+                w: 20,
+                h: 20,
+                hp: 15,
+                tag: 'mob',
+                fillStyle: '#ff0'
+            });
+
+            sweeper.components.add(new SweeperAI({
+                speed: 155,
+                v: new Engine.Vector2(0, 1)
+            }));
+            this.children.add(sweeper);
+
+            // wall.on('collision', function(c) {
+            //     if (c.get('tag') === 'player') {
+            //         return;
+            //     }
+
+            //     c.destroy();
+
+            //     var hp = this.get('hp');
+            //     hp--;
+            //     this.set('hp', hp);
+
+            //     if (hp <= 0) {
+            //         this.destroy();
+            //         thisScene.children.withName('score')[0].set('text', 'Score: 100');
+            //     }
+            // });
 
             var scoreLabel = new Engine.Gui.Label({
                 name: 'score',
