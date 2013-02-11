@@ -17,7 +17,7 @@ define([
                     inputManager: new InputManager()
                 };
 
-            return _.extend(Scene.__super__.defaults(), defaults);
+            return _.extend(Scene.__super__.defaults.call(this), defaults);
         },
 
         absolutePosition: function() {

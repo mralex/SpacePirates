@@ -32,6 +32,10 @@ define([
                 return objects[0];
             }
             return null;
+        },
+
+        withName: function(name) {
+            return this.where({ name: name });
         }
     });
 

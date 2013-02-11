@@ -1,80 +1,16 @@
-define(['jquery', 'underscore', 'backbone', 'src/engine'], function($, _, Backbone, Engine) {
+define([
+    'jquery', 'underscore', 'backbone', 'src/engine', 'src/engine/entities/collider_entity', 'src/game/level'
+], function($, _, Backbone, Engine, ColliderEntity, Level) {
     var init = function() {
-        var SceneCollisionManager = Engine.BaseComponent.extend({
-                type: 'SceneCollisionManager',
-
-                onStart: function() {
-                    this.set('colliders', []);
-
-                    _.bindAll(this, 'childAdded', 'childRemoved', 'lateStep');
-                    this.gameObject.children.on('add', this.childAdded);
-                    this.gameObject.children.on('remove', this.childRemoved);
-                    this.gameObject.on('lateStep', this.lateStep);
-                },
-
-                childAdded: function(gameObject) {
-                    if (gameObject.components.ofType('AxisAlignedBoundsComponent')) {
-                        this.attributes.colliders.push(gameObject);
-                    }
-                },
-
-                childRemoved: function(gameObject) {
-                    var index = this.attributes.colliders.indexOf(gameObject);
-                    if (index > -1) {
-                        this.attributes.colliders.splice(index, 1);
-                    }
-                },
-
-                lateStep: function(dt) {
-                    var colliders = this.attributes.colliders,
-                        colliderCount = colliders.length,
-                        colliderA,
-                        colliderB,
-                        componentA,
-                        componentB,
-                        boxA,
-                        boxB,
-                        i,
-                        j;
-
-                    for (i = 0; i < colliderCount; i++) {
-                        colliderA = colliders[i];
-                        for (j = 0; j < colliderCount; j++) {
-                            colliderB = colliders[j];
-                            if (colliderA === colliderB) {
-                                continue;
-                            }
-
-                            componentA = colliderA.components.ofType('AxisAlignedBoundsComponent');
-                            componentB = colliderB.components.ofType('AxisAlignedBoundsComponent');
-                            boxA = componentA.getBounds();
-                            boxB = componentB.getBounds();
-
-                            if (boxA.intersects(boxB)) {
-
-                                if (componentA.colliders.indexOf(colliderB) < 0) {
-                                    colliderA.trigger('collision', colliderB);
-                                    componentA.colliders.push(colliderB);
-                                }
-                                if (componentB.colliders.indexOf(colliderA) < 0) {
-                                    colliderB.trigger('collision', colliderA);
-                                    componentB.colliders.push(colliderA);
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-
         var game = new Engine.Engine({ el: '#gameCanvas' });
         window.game = game;
 
-        var scene = new Engine.Scene({ name: 'test2', w: game.width(), h: game.height() });
+        var scene = new Level({ name: 'test2', w: game.width(), h: game.height() });
         game.scenes.add(scene);
 
-        scene.components.add(new SceneCollisionManager());
-
         scene.load(function() {
+            var thisScene = this;
+
             var RotationComponent = Engine.BaseComponent.extend({
                     type: 'RotationComponent',
 
@@ -100,10 +36,10 @@ define(['jquery', 'underscore', 'backbone', 'src/engine'], function($, _, Backbo
                         this.gameObject.set('velocity', Engine.Vector2.zero());
 
                         if (this.scene.inputManager().isKeyDown('W')) {
-                            this.gameObject.set('velocity', this.gameObject.forward().multiply(speed * dt));
+                            this.gameObject.set('velocity', this.gameObject.up().multiply(speed * dt));
                         }
                         if (this.scene.inputManager().isKeyDown('S')) {
-                            this.gameObject.set('velocity', this.gameObject.forward().multiply(-speed * dt));
+                            this.gameObject.set('velocity', this.gameObject.up().multiply(-speed * dt));
                         }
                         this.gameObject.set('position', pos.add(this.gameObject.get('velocity')));
                     }
@@ -111,13 +47,23 @@ define(['jquery', 'underscore', 'backbone', 'src/engine'], function($, _, Backbo
 
                 BulletComponent = Engine.BaseComponent.extend({
                     type: 'BulletComponent',
+
+                    defaults: function() {
+                        var defaults = {
+                                speed: 400,
+                                ttl: 1000
+                            };
+
+                        return _.extend(BulletComponent.__super__.defaults.call(this), defaults);
+                    },
+
                     onStart: function() {
-                        _.delay(this.gameObject.destroy, 1000);
+                        _.delay(this.gameObject.destroy, this.get('ttl'));
                     },
                     step: function(dt) {
                         var pos = this.gameObject.position();
 
-                        this.gameObject.set('position', pos.add(this.gameObject.forward().multiply(300 * dt)));
+                        this.gameObject.set('position', pos.add(this.gameObject.up().multiply(this.get('speed') * dt)));
                     }
                 }),
                 GunComponent = Engine.BaseComponent.extend({
@@ -135,14 +81,12 @@ define(['jquery', 'underscore', 'backbone', 'src/engine'], function($, _, Backbo
                                 bullet = this.get('bulletObject')();
                                 pos = barrels[i].absolutePosition();
 
-                                // bullet.set('position', this.gameObject.position().add(pos));
+                                // bullet.set('position', this.gameObject.position().add(pos));* 0.5
                                 bullet.set('position', pos);
                                 bullet.set('rotation', this.gameObject.rotation());
 
                                 this.scene.children.add(bullet);
                             }
-
-
                         }
 
                         if (this.reloadTimer > 0) {
@@ -249,82 +193,10 @@ define(['jquery', 'underscore', 'backbone', 'src/engine'], function($, _, Backbo
                         ctx.stroke();
                         ctx.restore();
                     }
-                }),
-                AxisAlignedBoundsComponent = Engine.BaseComponent.extend({
-                    type: 'AxisAlignedBoundsComponent',
-
-                    defaults: function() {
-                        defaults = {
-                            drawBounds: true
-                        };
-                        return _.extend(AxisAlignedBoundsComponent.__super__.defaults(), defaults);
-                    },
-
-                    onStart: function() {
-                        _.bindAll(this, 'drawBounds', 'onCollision');
-
-                        // if (this.get('drawBounds') === true) {
-                            this.gameObject.on('lateDraw', this.drawBounds);
-                        // }
-
-                        this.gameObject.on('collision', this.onCollision);
-
-                        this.colliders = [];
-                    },
-
-                    getBounds: function() {
-                        return Engine.AABoundingBox.fromRect(this.getRect());
-                    },
-
-                    abs: function(v) {
-                        return (v < 0 ? -v : v);
-                    },
-
-                    getRect: function() {
-                        if (!this.rect) {
-                            var pos = this.gameObject.position(),
-                                sin = this.abs(Math.sin(this.gameObject.rotation())),
-                                cos = this.abs(Math.cos(this.gameObject.rotation()));
-
-                            w = (this.gameObject.bounds().h * sin) + (this.gameObject.bounds().w * cos);
-                            h = (this.gameObject.bounds().h * cos) + (this.gameObject.bounds().w * sin);
-                            x = pos.x - (w / 2);
-                            y = pos.y - (h / 2);
-
-                            this.rect = {
-                                x: x,
-                                y: y,
-                                w: w,
-                                h: h
-                            };
-                        }
-
-                        return this.rect;
-                    },
-
-                    step: function(dt) {
-                        this.colliders = [];
-                        this.rect = null;
-                        this.strokeColor = '#0f0';
-                    },
-
-                    drawBounds: function(ctx) {
-                        ctx.save();
-                        ctx.setTransform(1, 0, 0, 1, 0, 0);
-                        ctx.rotate(0);
-                        ctx.strokeStyle = this.strokeColor;
-                        ctx.lineWidth = 0.75;
-                        ctx.strokeRect(this.getRect().x, this.getRect().y, this.getRect().w, this.getRect().h);
-                        ctx.restore();
-                    },
-
-                    onCollision: function(gameObject) {
-                        // XXX Trigger narrow phase collision detection?
-                    }
                 });
 
             var arm, 
-                entity = new Engine.GameObject({
+                entity = new ColliderEntity({
                     position: new Engine.Vector2(this.width() / 2, this.height() / 2),
                     w: 15,
                     h: 20,
@@ -341,8 +213,8 @@ define(['jquery', 'underscore', 'backbone', 'src/engine'], function($, _, Backbo
                 arm.children.add([
                     new Engine.GameObject({
                         position: new Engine.Vector2(0, -15),
-                        w: 1,
-                        h: 1,
+                        w: 0,
+                        h: 0,
                         render: false,
                         name: 'barrel'
                     })
@@ -372,18 +244,17 @@ define(['jquery', 'underscore', 'backbone', 'src/engine'], function($, _, Backbo
                         entity.children.at(1).children.at(0)
                     ],
                     bulletObject: function() {
-                        var bullet = new Engine.GameObject({
+                        var bullet = new ColliderEntity({
                                 position: new Engine.Vector2.zero(),
                                 w: 3,
                                 h: 3,
                                 tag: 'bullet'
                             });
 
-                        bullet.components.add([new BulletComponent(), new AxisAlignedBoundsComponent()]);
+                        bullet.components.add([new BulletComponent()]);
                         return bullet;
                     }
-                }),
-                new AxisAlignedBoundsComponent({})
+                })
             ]);
             this.children.add(entity);
 
@@ -394,12 +265,10 @@ define(['jquery', 'underscore', 'backbone', 'src/engine'], function($, _, Backbo
 
                 if (c.get('tag') === 'wall') {
                     var pos = this.position(),
-                        x = pos.x,
-                        y = pos.y,
                         v = this.get('velocity'),
 
-                        wallBounds = c.components.ofType('AxisAlignedBoundsComponent').getBounds(),
-                        bounds = this.components.ofType('AxisAlignedBoundsComponent').getBounds(),
+                        wallBounds = c.components.ofType('ColliderComponent').getBounds(),
+                        bounds = this.components.ofType('ColliderComponent').getBounds(),
 
                         direction = this.position().subtract(c.position()),
 
@@ -410,23 +279,23 @@ define(['jquery', 'underscore', 'backbone', 'src/engine'], function($, _, Backbo
 
                     if (ox < oy) {
                         if (direction.x < 0) {
-                            x -= ox;
+                            pos.x -= ox;
                         } else {
-                            x += ox;
+                            pos.x += ox;
                         }
                     } else {
                         if (direction.y < 0) {
-                            y -= oy;
+                            pos.y -= oy;
                         } else {
-                            y += oy;
+                            pos.y += oy;
                         }
                     }
 
-                    this.set('position', new Engine.Vector2(x, y));
+                    this.set('position', pos);
                 }
             });
 
-            var wall = new Engine.GameObject({
+            var wall = new ColliderEntity({
                 position: new Engine.Vector2(100, this.height() / 2),
                 w: 50,
                 h: 100,
@@ -434,7 +303,6 @@ define(['jquery', 'underscore', 'backbone', 'src/engine'], function($, _, Backbo
                 hp: 10,
                 tag: 'wall'
             });
-            wall.components.add([new AxisAlignedBoundsComponent()]);
             this.children.add(wall);
 
             wall.on('collision', function(c) {
@@ -450,8 +318,17 @@ define(['jquery', 'underscore', 'backbone', 'src/engine'], function($, _, Backbo
 
                 if (hp <= 0) {
                     this.destroy();
+                    thisScene.children.withName('score')[0].set('text', 'Score: 100');
                 }
             });
+
+            var scoreLabel = new Engine.Gui.Label({
+                name: 'score',
+                position: new Engine.Vector2(5, 10),
+                text: 'Score: 0'
+            });
+
+            this.children.add(scoreLabel);
         });
 
         game.setActiveScene('test2');
